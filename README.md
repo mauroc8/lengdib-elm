@@ -57,9 +57,9 @@ main =
     Dibujo.aHtml ( 400, 400 ) Basicas.interprete dibujo
 
 dibujo =
-    apilar
-        ( 1, juntar ( 1, simple Cuadrado ) ( 1, simple Circulo ) )
-        ( 2, cuadrantesRecursivo 3 intToBasicas )
+    apilar 0.33
+        (juntar 0.5 (simple Cuadrado) (simple Circulo))
+        (cuadrantesRecursivo 3 intToBasicas)
 ```
 
 ![Dibujo hecho con figuras básicas(triángulos, círculos y cuadrados).](docs/dibujo-basicas.png)
