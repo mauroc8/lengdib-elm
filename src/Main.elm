@@ -14,6 +14,47 @@ import Html exposing (Html)
 
 main : Html msg
 main =
-    -- El `<|` es como el `$` en haskell
-    Dibujo.aHtml Basicas.interprete <|
-        apilar ( 1, simple Cuadrado ) ( 2, simple Circulo )
+    Dibujo.aHtml ( 400, 400 ) Basicas.interprete dibujo
+
+
+dibujo : Dibujo Basicas
+dibujo =
+    apilar 0.33
+        (juntar 0.5 (simple Cuadrado) (simple Circulo))
+        (cuadrantesRecursivo 3 intToBasicas)
+
+
+cuadrantesRecursivo : Int -> (Int -> Basicas) -> Dibujo Basicas
+cuadrantesRecursivo nivel figura =
+    if nivel <= 0 then
+        -- El <| es como el $ en haskell
+        simple <| figura 0
+
+    else
+        let
+            alternada =
+                -- El operador `<<` es como `.` en haskell,
+                -- hace composición de funciones.
+                figura << (+) 1
+        in
+        apilar 0.5
+            (juntar 0.5
+                (cuadrantesRecursivo (nivel - 1) alternada)
+                (cuadrantesRecursivo (nivel - 1) figura)
+            )
+            (juntar 0.5
+                (cuadrantesRecursivo (nivel - 1) figura)
+                (cuadrantesRecursivo (nivel - 1) alternada)
+            )
+
+
+intToBasicas : Int -> Basicas
+intToBasicas i =
+    if modBy 3 i == 0 then
+        Circulo
+
+    else if modBy 3 i == 1 then
+        Cuadrado
+
+    else
+        Triangulo

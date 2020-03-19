@@ -12,6 +12,7 @@ module Dibujo exposing
 
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attributes
+import Transform
 
 
 type Dibujo a
@@ -19,8 +20,10 @@ type Dibujo a
     | Rotar (Dibujo a)
     | Espejar (Dibujo a)
     | Rot45 (Dibujo a)
-    | Apilar Int Int (Dibujo a) (Dibujo a)
-    | Juntar Int Int (Dibujo a) (Dibujo a)
+      -- NOTA: Cambié cómo representamos internamente el Apilar.
+      -- Antes era `Apilar Int Int ...`. Ver comentario en la función `apilar`.
+    | Apilar Float (Dibujo a) (Dibujo a)
+    | Juntar Float (Dibujo a) (Dibujo a)
     | Encimar (Dibujo a) (Dibujo a)
 
 
@@ -53,32 +56,38 @@ espejar =
     Espejar
 
 
+{-| Un dibujo rotado 45 grados y escalado de modo que la esquina superior izquierda permanezca fija,
+pero la esquina inferior derecha pase a estar en la esquina superior derecha del marco.
+-}
 rot45 : Dibujo a -> Dibujo a
 rot45 =
     Rot45
 
 
-{-| Acá aprovecho para cambiar la "API".
-Estoy experimentando entre
+{-| Apila dos imágenes. La línea que las divide estará a un porcentaje del
+espacio disponible, representado como un Float entre 0 y 1.
 
-    apilar ( 1, casa ) ( 2, jardin )
+NOTA: Acá podríamos decidir por una API para apilar. Otras alternativas que probé son:
 
+    -- original
+    apilar : Int -> Int -> Dibujo a -> Dibujo a -> Dibujo a
+    -- variante
+    apilar : ( Int, Dibujo a ) -> ( Int, Dibujo a ) -> Dibujo a
 
-    -- Así era antes
-    apilar 1 2 casa jardin
+Etc. Estoy probando con 1 sólo número.
 
 -}
-apilar : ( Int, Dibujo a ) -> ( Int, Dibujo a ) -> Dibujo a
-apilar ( x, a ) ( y, b ) =
-    Apilar x y a b
+apilar : Float -> Dibujo a -> Dibujo a -> Dibujo a
+apilar k a b =
+    Apilar k a b
 
 
-{-| Poner dos dibujos lado a lado, donde cada uno ocupa una
-proporción del total.
+{-| Poner dos dibujos lado a lado. La línea que las divide estará a un porcentaje del
+espacio disponible, representado como un Float entre 0 y 1.
 -}
-juntar : ( Int, Dibujo a ) -> ( Int, Dibujo a ) -> Dibujo a
-juntar ( x, a ) ( y, b ) =
-    Juntar x y a b
+juntar : Float -> Dibujo a -> Dibujo a -> Dibujo a
+juntar k a b =
+    Juntar k a b
 
 
 {-| Aprovecho a cambiarle el nombre porque me parece más claro
@@ -90,136 +99,120 @@ superponer =
 
 {-| Renderizar el dibujo en Html.
 -}
-aHtml : (a -> Html msg) -> Dibujo a -> Html msg
-aHtml interprete dibujo =
+aHtml : ( Int, Int ) -> (( Int, Int ) -> a -> Html msg) -> Dibujo a -> Html msg
+aHtml size interprete dibujo =
     let
-        fullWidth =
-            [ Attributes.style "width" "300px"
-            , Attributes.style "height" "300px"
+        ( width, height ) =
+            size
+
+        sizeAttrs =
+            [ Attributes.style "width" (String.fromInt width ++ "px")
+            , Attributes.style "height" (String.fromInt height ++ "px")
             ]
+
+        position =
+            Attributes.style "position"
+
+        -- para debuguear
+        tag =
+            Attributes.class
     in
     case dibujo of
         Simple a ->
             Html.div
-                fullWidth
-                [ interprete a ]
+                (tag "simple"
+                    :: sizeAttrs
+                )
+                [ interprete size a ]
 
         Rotar child ->
             Html.div
-                [ Attributes.style "transform" "rotate(90deg) translate(300px, 300px)"
-                ]
-                [ aHtml interprete child ]
+                (Transform.toAttribute size Transform.rotar
+                    :: tag "rotar"
+                    :: sizeAttrs
+                )
+                [ aHtml size interprete child ]
 
         Espejar child ->
             Html.div
-                [ Attributes.style "transform" "scale(-1, 1)"
-                ]
-                [ aHtml interprete child ]
+                (Transform.toAttribute size Transform.espejar
+                    :: tag "espejar"
+                    :: sizeAttrs
+                )
+                [ aHtml size interprete child ]
 
         Rot45 child ->
-            Html.div [] [ aHtml interprete child ]
+            Html.div
+                (Transform.toAttribute size Transform.rot45
+                    :: tag "rot45"
+                    :: sizeAttrs
+                )
+                [ aHtml size interprete child ]
 
-        Apilar a b childLeft childRight ->
-            Html.div fullWidth
+        Apilar k childLeft childRight ->
+            Html.div
+                (position "relative"
+                    :: tag "apilar"
+                    :: sizeAttrs
+                )
                 [ Html.div
-                    (apilarArriba a b)
-                    [ aHtml interprete childLeft
-                    ]
+                    (Transform.toAttribute size
+                        (Transform.apilar Transform.Arriba k)
+                        :: position "absolute"
+                        :: tag "arriba"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childLeft ]
                 , Html.div
-                    (apilarAbajo a b)
-                    [ aHtml interprete childRight
-                    ]
+                    (Transform.toAttribute size
+                        (Transform.apilar Transform.Abajo k)
+                        :: position "absolute"
+                        :: tag "abajo"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childRight ]
                 ]
 
-        Juntar a b childLeft childRight ->
-            Html.div fullWidth
-                [ Html.div (juntarIzquierda a b)
-                    [ aHtml interprete childLeft ]
-                , Html.div (juntarDerecha a b)
-                    [ aHtml interprete childRight ]
+        Juntar k childLeft childRight ->
+            Html.div
+                (position "relative"
+                    :: tag "juntar"
+                    :: sizeAttrs
+                )
+                [ Html.div
+                    (Transform.toAttribute size
+                        (Transform.juntar Transform.Izquierda k)
+                        :: position "absolute"
+                        :: tag "izquierda"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childLeft ]
+                , Html.div
+                    (Transform.toAttribute size
+                        (Transform.juntar Transform.Derecha k)
+                        :: position "absolute"
+                        :: tag "derecha"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childRight ]
                 ]
 
         Encimar childLeft childRight ->
             Html.div
-                (fullWidth
-                    ++ [ Attributes.style "position" "relative"
-                       ]
+                (position "relative"
+                    :: tag "encimar"
+                    :: sizeAttrs
                 )
-                [ Html.div encimarAttrs [ aHtml interprete childLeft ]
-                , Html.div encimarAttrs [ aHtml interprete childRight ]
+                [ Html.div
+                    (position "absolute"
+                        :: tag "detras"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childLeft ]
+                , Html.div
+                    (position "absolute"
+                        :: tag "delante"
+                        :: sizeAttrs
+                    )
+                    [ aHtml size interprete childRight ]
                 ]
-
-
-
---- Ayudantes Html
-
-
-juntarIzquierda : Int -> Int -> List (Attribute msg)
-juntarIzquierda a b =
-    let
-        k =
-            toFloat a / toFloat b
-    in
-    [ scaleXtranslateX k (-(1 - k) / 2) ]
-
-
-apilarArriba : Int -> Int -> List (Attribute msg)
-apilarArriba a b =
-    let
-        k =
-            toFloat a / toFloat b
-    in
-    [ scaleYtranslateY k (-(1 - k) / 2) ]
-
-
-juntarDerecha : Int -> Int -> List (Attribute msg)
-juntarDerecha a b =
-    let
-        k =
-            toFloat a / toFloat b
-    in
-    [ scaleXtranslateX k (k / 2) ]
-
-
-apilarAbajo : Int -> Int -> List (Attribute msg)
-apilarAbajo a b =
-    let
-        k =
-            toFloat a / toFloat b
-    in
-    [ scaleYtranslateY k (k / 2) ]
-
-
-encimarAttrs : List (Attribute msg)
-encimarAttrs =
-    [ Attributes.style "position" "absolute"
-    , Attributes.style "left" "0"
-    , Attributes.style "top" "0"
-    , Attributes.style "right" "0"
-    , Attributes.style "bottom" "0"
-    ]
-
-
-scaleXtranslateX : Float -> Float -> Attribute msg
-scaleXtranslateX s t =
-    [ "scale(" ++ String.fromFloat s ++ ", 1)"
-    , "translate(" ++ aPorcentaje t ++ ", 0)"
-    ]
-        |> String.join " "
-        |> Attributes.style "transform"
-
-
-scaleYtranslateY : Float -> Float -> Attribute msg
-scaleYtranslateY s t =
-    [ "scale(1, " ++ String.fromFloat s ++ ")"
-    , "translate(0, " ++ aPorcentaje t ++ ")"
-    ]
-        |> String.join " "
-        |> Attributes.style "transform"
-
-
-aPorcentaje : Float -> String
-aPorcentaje x =
-    round (x * 100)
-        |> String.fromInt
-        |> (\p -> p ++ "%")

@@ -1,6 +1,6 @@
 # Lengdib-elm
 
-Portando (lengdib)[https://gitlab.com/karen.p/lengdib] a elm.
+Portando [lengdib](https://gitlab.com/karen.p/lengdib) a elm.
 
 ## Correr servidor
 
@@ -46,16 +46,37 @@ Tener cuidado al buscar en google! A veces sale la documentación de versiones a
 
 Por ahora, para probar un dibujo hay que escribirlo en el código y compilar de nuevo.
 
-```elm
-    -- src/Main.elm
-    main =
-        Dibujo.toHtml Basicas.interprete <|
-            miDibujo
+Por ejemplo, el siguiente dibujo se escribe así:
 
-    miDibujo : Dibujo
+```elm
+-- src/Main.elm
+import Basicas exposing (Basicas(..))
+import Dibujo exposing (apilar, juntar, simple)
+
+main =
+    Dibujo.aHtml ( 400, 400 ) Basicas.interprete dibujo
+
+dibujo =
+    apilar
+        ( 1, juntar ( 1, simple Cuadrado ) ( 1, simple Circulo ) )
+        ( 2, cuadrantesRecursivo 3 intToBasicas )
 ```
 
-La conversión a Html es simplista. Se puede convertir a Svg o pintar en un `<canvas>` en vez de usar Html.
+![Dibujo hecho con figuras básicas(triángulos, círculos y cuadrados).](docs/dibujo-basicas.png)
+
+En este caso hicimos un dibujo con figuras `Basicas`. Se pueden hacer muchos tipos de figuras, sólo es necesaria la función `interprete : (Int, Int) -> Figura -> Html msg`.
+
+## Roadmap
+
+Algunas cosas que faltan:
+
+- Más tipos de figuras, como `Basica`, pero usando imágenes.
+- Las función `escher` y sus dependencias.
+- Las funciones de `Dibujo a`, por ejemplo:
+  - `map : (a -> b) -> Dibujo a -> Dibujo b`
+  - `fold : ...` (como `semantica` en la versión en haskell)
+  - `apply : Dibujo (a -> b) -> Dibujo a -> Dibujo b`
+  - `andThen : (a -> Dibujo b) -> Dibujo a -> Dibujo b` (como el `bind` en haskell)
 
 ## Licencia
 
